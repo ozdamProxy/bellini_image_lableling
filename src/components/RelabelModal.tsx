@@ -61,9 +61,9 @@ export default function RelabelModal({ image, onClose, onRelabel }: RelabelModal
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
               Current label: <span className="font-semibold capitalize">{image.label}</span>
             </p>
-            {image.labeledAt && (
+            {image.labeled_at && (
               <p className="text-xs text-gray-500">
-                Labeled: {new Date(image.labeledAt).toLocaleString()}
+                Labeled: {new Date(image.labeled_at).toLocaleString()}
               </p>
             )}
           </div>

@@ -72,6 +72,11 @@ export function getAllImages(): ImageData[] {
         filename,
         label: 'unlabeled',
         path: `/images/unlabeled/${filename}`,
+        s3_key: '',
+        s3_bucket: '',
+        is_trained: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       images.push(newImage);
       store.images[filename] = newImage;
@@ -125,7 +130,12 @@ export function labelImage(filename: string, label: Label): ImageData | null {
     filename,
     label,
     path: `/images/${label}/${filename}`,
-    labeledAt: new Date().toISOString(),
+    s3_key: '',
+    s3_bucket: '',
+    is_trained: false,
+    labeled_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   store.images[filename] = updatedImage;

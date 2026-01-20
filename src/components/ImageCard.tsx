@@ -40,9 +40,9 @@ export default function ImageCard({ image, onClick }: ImageCardProps) {
           <span className="text-xs px-2 py-1 rounded-full bg-white border capitalize">
             {image.label}
           </span>
-          {image.labeledAt && (
+          {image.labeled_at && (
             <span className="text-xs text-gray-500">
-              {new Date(image.labeledAt).toLocaleDateString()}
+              {new Date(image.labeled_at).toLocaleDateString()}
             </span>
           )}
         </div>

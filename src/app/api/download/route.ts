@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       ? `untrained_${label || 'all'}_images.zip`
       : `${label}_images.zip`;
 
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(new Uint8Array(zipBuffer), {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,
