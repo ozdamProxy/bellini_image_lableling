@@ -393,8 +393,14 @@ export default function AdminTab() {
           </button>
         </div>
 
-        {showDeletionSection && deletionStats && (
+        {showDeletionSection && (
           <div className="space-y-4">
+            {!deletionStats ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
+                <p className="mt-2 text-gray-600 text-sm">Loading deletion statistics...</p>
+              </div>
+            ) : (
             {/* Filter Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -477,6 +483,7 @@ export default function AdminTab() {
                   ></div>
                 </div>
               </div>
+            )}
             )}
           </div>
         )}
