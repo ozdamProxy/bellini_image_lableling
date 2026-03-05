@@ -401,6 +401,7 @@ export default function AdminTab() {
                 <p className="mt-2 text-gray-600 text-sm">Loading deletion statistics...</p>
               </div>
             ) : (
+              <>
             {/* Filter Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -484,6 +485,7 @@ export default function AdminTab() {
                 </div>
               </div>
             )}
+              </>
             )}
           </div>
         )}
