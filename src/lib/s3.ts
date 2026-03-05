@@ -38,13 +38,13 @@ export async function listS3Images(bucket: string, prefix: string = ''): Promise
     let continuationToken: string | undefined = undefined;
 
     do {
-      const command = new ListObjectsV2Command({
+      const command: any = new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: prefix,
         ContinuationToken: continuationToken,
       });
 
-      const response = await client.send(command);
+      const response: any = await client.send(command);
 
       if (!response.Contents) {
         break;
@@ -52,12 +52,12 @@ export async function listS3Images(bucket: string, prefix: string = ''): Promise
 
       // Filter and add keys from this page
       const keys = response.Contents
-        .filter(item => {
+        .filter((item: any) => {
           const key = item.Key || '';
           return imageExtensions.some(ext => key.toLowerCase().endsWith(ext));
         })
-        .map(item => item.Key || '')
-        .filter(key => key !== '');
+        .map((item: any) => item.Key || '')
+        .filter((key: string) => key !== '');
 
       allKeys = allKeys.concat(keys);
 
