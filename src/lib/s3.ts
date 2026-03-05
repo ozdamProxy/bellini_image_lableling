@@ -33,26 +33,43 @@ function getS3Client(): S3Client {
 export async function listS3Images(bucket: string, prefix: string = ''): Promise<string[]> {
   try {
     const client = getS3Client();
-    const command = new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
-    });
-
-    const response = await client.send(command);
-
-    if (!response.Contents) {
-      return [];
-    }
-
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    let allKeys: string[] = [];
+    let continuationToken: string | undefined = undefined;
 
-    return response.Contents
-      .filter(item => {
-        const key = item.Key || '';
-        return imageExtensions.some(ext => key.toLowerCase().endsWith(ext));
-      })
-      .map(item => item.Key || '')
-      .filter(key => key !== '');
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      });
+
+      const response = await client.send(command);
+
+      if (!response.Contents) {
+        break;
+      }
+
+      // Filter and add keys from this page
+      const keys = response.Contents
+        .filter(item => {
+          const key = item.Key || '';
+          return imageExtensions.some(ext => key.toLowerCase().endsWith(ext));
+        })
+        .map(item => item.Key || '')
+        .filter(key => key !== '');
+
+      allKeys = allKeys.concat(keys);
+
+      // Check if there are more objects to fetch
+      continuationToken = response.NextContinuationToken;
+
+      console.log(`Fetched ${keys.length} images from S3 (total so far: ${allKeys.length})`);
+
+    } while (continuationToken); // Continue until there's no more continuation token
+
+    console.log(`Total images found in S3: ${allKeys.length}`);
+    return allKeys;
   } catch (error) {
     console.error('Error listing S3 images:', error);
     throw error;
