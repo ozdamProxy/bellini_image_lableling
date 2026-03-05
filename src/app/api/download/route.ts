@@ -4,13 +4,23 @@ import { getS3ImageBuffer } from '@/lib/s3';
 import { Label } from '@/types/image';
 import JSZip from 'jszip';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const label = searchParams.get('label') as Label | null;
     const untrainedOnly = searchParams.get('untrained') === 'true';
 
-    const bucket = process.env.AWS_S3_BUCKET || '';
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!bucket) {
+      console.error('AWS_S3_BUCKET environment variable is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
 
     let images;
     if (untrainedOnly) {

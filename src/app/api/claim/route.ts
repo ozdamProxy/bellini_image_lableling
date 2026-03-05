@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getS3ImageUrl } from '@/lib/s3';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { userId, userName, batchSize = 1 } = await request.json();
@@ -13,6 +16,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!bucket) {
+      console.error('AWS_S3_BUCKET environment variable is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
     // Update labeler info if userName is provided
     if (userName) {
       await supabase.rpc('upsert_labeler', {
@@ -20,8 +32,6 @@ export async function POST(request: NextRequest) {
         p_user_name: userName,
       });
     }
-
-    const bucket = process.env.AWS_S3_BUCKET || '';
     const claimedImages = [];
 
     // Claim multiple images in a batch

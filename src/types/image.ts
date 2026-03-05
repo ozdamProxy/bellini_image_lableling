@@ -54,3 +54,36 @@ export interface ClaimResponse {
   images: ImageData[];
   claimed: number;
 }
+
+// Deletion-related types
+export type DeletionFilterType = 'all' | 'trained' | 'untrained' | 'faulty' | 'pass' | 'maybe' | 'unlabeled';
+
+export interface DeletionStats {
+  all_images: number;
+  trained_images: number;
+  untrained_images: number;
+  faulty_images: number;
+  pass_images: number;
+  maybe_images: number;
+  unlabeled_images: number;
+  with_s3_key: number;
+  without_s3_key: number;
+}
+
+export interface DeleteImagesRequest {
+  filterType: DeletionFilterType;
+  hardDelete: boolean;
+  batchSize?: number;
+}
+
+export interface DeleteImagesResponse {
+  success: boolean;
+  message: string;
+  stats: {
+    totalQueued: number;
+    s3Deleted: number;
+    s3Failed: number;
+    dbUpdated: number;
+  };
+  errors: string[];
+}

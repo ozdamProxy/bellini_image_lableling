@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getS3ImageUrl } from '@/lib/s3';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -14,7 +17,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const bucket = process.env.AWS_S3_BUCKET || '';
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!bucket) {
+      console.error('AWS_S3_BUCKET environment variable is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
 
     const { data, error } = await supabase.rpc('get_user_claimed_images', {
       p_user_id: userId,

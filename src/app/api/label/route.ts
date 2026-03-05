@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { updateImageLabel } from '@/lib/supabase';
 import { LabelRequest } from '@/types/image';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: LabelRequest = await request.json();

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { markImagesAsTrained } from '@/lib/supabase';
 import { MarkTrainedRequest } from '@/types/image';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body: MarkTrainedRequest = await request.json();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { isAdminAuthenticated, checkAdminPassword, setAdminAuth, logoutAdmin } from '@/lib/adminAuth';
+import { DeletionFilterType, DeletionStats } from '@/types/image';
 
 interface ClaimedImage {
   filename: string;
@@ -28,6 +29,17 @@ export default function AdminTab() {
   const [labelers, setLabelers] = useState<LabelerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [unclaiming, setUnclaiming] = useState<string | null>(null);
+
+  // Deletion state
+  const [showDeletionSection, setShowDeletionSection] = useState(false);
+  const [deletionStats, setDeletionStats] = useState<DeletionStats | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<DeletionFilterType>('all');
+  const [deleting, setDeleting] = useState(false);
+  const [deletionProgress, setDeletionProgress] = useState<{
+    current: number;
+    total: number;
+    message: string;
+  } | null>(null);
 
   const fetchLabelers = async () => {
     try {
@@ -57,6 +69,12 @@ export default function AdminTab() {
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && showDeletionSection) {
+      fetchDeletionStats();
+    }
+  }, [isAuthenticated, showDeletionSection]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,6 +147,155 @@ export default function AdminTab() {
     } finally {
       setUnclaiming(null);
     }
+  };
+
+  // Deletion functions
+  const fetchDeletionStats = async () => {
+    try {
+      const response = await fetch('/api/admin/delete-stats');
+      const data = await response.json();
+      if (response.ok) {
+        setDeletionStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching deletion stats:', error);
+    }
+  };
+
+  const handleDelete = async (hardDelete: boolean = false) => {
+    if (!deletionStats) return;
+
+    const filterNames: Record<DeletionFilterType, string> = {
+      all: 'All Images',
+      trained: 'Trained Images',
+      untrained: 'Untrained Images',
+      faulty: 'Faulty Images',
+      pass: 'Pass Images',
+      maybe: 'Maybe Images',
+      unlabeled: 'Unlabeled Images',
+    };
+
+    const filterName = filterNames[selectedFilter];
+    const affectedCount = getAffectedCount();
+
+    // Confirmation
+    if (hardDelete) {
+      // Double confirmation for hard delete
+      const firstConfirm = confirm(
+        `⚠️ FIRST CONFIRMATION: Hard Reset Operation ⚠️\n\nThis will PERMANENTLY delete:\n• S3 files for ${affectedCount} ${filterName}\n• ALL database records for these images\n• Statistics and labeling history will be lost\n\nThis action CANNOT be undone.\n\nType "DELETE" to confirm.`
+      );
+
+      if (!firstConfirm) return;
+
+      const secondConfirm = confirm(
+        'Are you REALLY sure? This is your last chance!\n\nClick OK to proceed with permanent deletion.'
+      );
+
+      if (!secondConfirm) return;
+    } else {
+      const confirmMsg = `Confirm Deletion\n\nThis will delete S3 files for ${affectedCount} ${filterName}.\nDatabase records will be preserved (s3_key set to NULL).\n\nContinue?`;
+
+      if (!confirm(confirmMsg)) return;
+    }
+
+    try {
+      setDeleting(true);
+      setDeletionProgress({ current: 0, total: affectedCount, message: 'Starting deletion...' });
+
+      const response = await fetch('/api/admin/delete-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filterType: selectedFilter,
+          hardDelete,
+          batchSize: 500,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        await fetchDeletionStats();
+        await fetchLabelers();
+      } else {
+        alert(`Failed to delete images: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting images:', error);
+      alert('Failed to delete images. Please try again.');
+    } finally {
+      setDeleting(false);
+      setDeletionProgress(null);
+    }
+  };
+
+  const handleHardReset = async () => {
+    if (!deletionStats) return;
+
+    const affectedCount = deletionStats.with_s3_key;
+
+    // Triple confirmation for hard reset
+    const firstConfirm = confirm(
+      `⚠️ HARD RESET - Nuclear Option ⚠️\n\nThis will delete ALL ${affectedCount} images from:\n• S3 storage\n• Database records\n\nThis is the most destructive action possible.\n\nContinue?`
+    );
+
+    if (!firstConfirm) return;
+
+    const secondConfirm = confirm(
+      `⚠️ FINAL WARNING ⚠️\n\nYou are about to delete ALL ${affectedCount} images.\n\nThis action CANNOT be undone.\n\nAre you absolutely sure?`
+    );
+
+    if (!secondConfirm) return;
+
+    const thirdConfirm = confirm(
+      'Last chance to cancel!\n\nClick "Cancel" to stop.\nClick "OK" to delete EVERYTHING.'
+    );
+
+    if (!thirdConfirm) return;
+
+    try {
+      setDeleting(true);
+      setDeletionProgress({ current: 0, total: affectedCount, message: 'Starting hard reset...' });
+
+      const response = await fetch('/api/admin/hard-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+        await fetchDeletionStats();
+        await fetchLabelers();
+      } else {
+        alert(`Failed to perform hard reset: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error performing hard reset:', error);
+      alert('Failed to perform hard reset. Please try again.');
+    } finally {
+      setDeleting(false);
+      setDeletionProgress(null);
+    }
+  };
+
+  const getAffectedCount = (): number => {
+    if (!deletionStats) return 0;
+
+    const counts: Record<DeletionFilterType, number> = {
+      all: deletionStats.with_s3_key,
+      trained: deletionStats.trained_images,
+      untrained: deletionStats.untrained_images,
+      faulty: deletionStats.faulty_images,
+      pass: deletionStats.pass_images,
+      maybe: deletionStats.maybe_images,
+      unlabeled: deletionStats.unlabeled_images,
+    };
+
+    return counts[selectedFilter] || 0;
   };
 
   // Password prompt if not authenticated
@@ -212,6 +379,107 @@ export default function AdminTab() {
         <p className="text-gray-600 text-sm sm:text-base">
           Total Active Labelers: <span className="font-semibold">{labelers.length}</span>
         </p>
+      </div>
+
+      {/* Image Cleanup / Deletion Section */}
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg sm:text-xl font-semibold">Image Cleanup / Deletion</h3>
+          <button
+            onClick={() => setShowDeletionSection(!showDeletionSection)}
+            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+          >
+            {showDeletionSection ? 'Hide' : 'Show'}
+          </button>
+        </div>
+
+        {showDeletionSection && deletionStats && (
+          <div className="space-y-4">
+            {/* Filter Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select images to delete:
+              </label>
+              <select
+                value={selectedFilter}
+                onChange={(e) => setSelectedFilter(e.target.value as DeletionFilterType)}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                disabled={deleting}
+              >
+                <option value="all">All Images ({deletionStats.with_s3_key})</option>
+                <option value="trained">Trained Images ({deletionStats.trained_images})</option>
+                <option value="untrained">Untrained Images ({deletionStats.untrained_images})</option>
+                <option value="faulty">Faulty Images ({deletionStats.faulty_images})</option>
+                <option value="pass">Pass Images ({deletionStats.pass_images})</option>
+                <option value="maybe">Maybe Images ({deletionStats.maybe_images})</option>
+                <option value="unlabeled">Unlabeled Images ({deletionStats.unlabeled_images})</option>
+              </select>
+            </div>
+
+            {/* Preview */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-700">
+                This will affect <span className="font-bold text-lg">{getAffectedCount()}</span> images
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {deletionStats.without_s3_key > 0 &&
+                  `(${deletionStats.without_s3_key} images already deleted from S3)`}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => handleDelete(false)}
+                disabled={deleting || getAffectedCount() === 0}
+                className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+              >
+                {deleting ? 'Deleting...' : 'Delete S3 Only (Keep Records)'}
+              </button>
+              <button
+                onClick={() => handleDelete(true)}
+                disabled={deleting || getAffectedCount() === 0}
+                className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+              >
+                {deleting ? 'Deleting...' : 'Hard Reset (Delete All)'}
+              </button>
+            </div>
+
+            {/* Nuclear Option */}
+            <div className="pt-4 border-t">
+              <button
+                onClick={handleHardReset}
+                disabled={deleting}
+                className="w-full px-4 py-3 bg-red-900 text-white rounded-lg hover:bg-red-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+              >
+                ☢️ Nuclear Option: Delete ALL Images
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Warning: This will delete all images from both S3 and database
+              </p>
+            </div>
+
+            {/* Progress Indicator */}
+            {deletionProgress && (
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-900">Deleting images...</span>
+                  <span className="text-sm text-blue-700">
+                    {deletionProgress.current} / {deletionProgress.total}
+                  </span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min((deletionProgress.current / deletionProgress.total) * 100, 100)}%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:gap-6">

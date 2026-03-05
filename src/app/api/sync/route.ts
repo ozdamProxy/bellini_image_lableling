@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { syncS3ImagesToDatabase } from '@/lib/supabase';
 import { listS3Images } from '@/lib/s3';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
-    const bucket = process.env.AWS_S3_BUCKET || '';
+    const bucket = process.env.AWS_S3_BUCKET;
     const prefix = process.env.AWS_S3_PREFIX || '';
 
     if (!bucket) {

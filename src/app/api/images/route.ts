@@ -3,14 +3,25 @@ import { getAllImagesFromDB, getImagesByLabel, syncS3ImagesToDatabase, getImageS
 import { listS3Images, getS3ImageUrl } from '@/lib/s3';
 import { Label } from '@/types/image';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const label = searchParams.get('label') as Label | null;
     const sync = searchParams.get('sync') === 'true';
 
-    const bucket = process.env.AWS_S3_BUCKET || '';
+    const bucket = process.env.AWS_S3_BUCKET;
     const prefix = process.env.AWS_S3_PREFIX || '';
+
+    if (!bucket) {
+      console.error('AWS_S3_BUCKET environment variable is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error: AWS_S3_BUCKET not configured' },
+        { status: 500 }
+      );
+    }
 
     if (sync) {
       const s3Keys = await listS3Images(bucket, prefix);
