@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { ImageData, Label, ImageStats, DeletionFilterType, DeletionStats } from '@/types/image';
+import { parseCaptureDate } from '@/lib/imageDate';
 
 // Lazy initialization to ensure env vars are available at runtime
 let supabaseClient: SupabaseClient | null = null;
@@ -32,6 +33,7 @@ export async function getAllImagesFromDB(): Promise<ImageData[]> {
   const { data, error } = await supabase
     .from('images')
     .select('*')
+    .order('captured_at', { ascending: false, nullsFirst: false })
     .order('filename', { ascending: false });
 
   if (error) {
@@ -60,10 +62,11 @@ export async function getImagesPaginated(
   }
 
   // Then get the paginated images
-  // Sort by filename descending — camera filenames are timestamp-based so this gives newest first
+  // Sort by captured_at (parsed from filename) so newest photos always appear first
   let query = supabase
     .from('images')
     .select('*')
+    .order('captured_at', { ascending: false, nullsFirst: false })
     .order('filename', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -239,12 +242,14 @@ export async function syncS3ImagesToDatabase(
     })
     .map(key => {
       const filename = key.split('/').pop() || key;
+      const capturedAt = parseCaptureDate(filename);
       return {
         filename,
         s3_key: key,
         s3_bucket: bucket,
         label: 'unlabeled' as Label,
         is_trained: false,
+        captured_at: capturedAt ? capturedAt.toISOString() : null,
       };
     });
 
@@ -275,7 +280,34 @@ export async function syncS3ImagesToDatabase(
     console.log('No new images to insert');
   }
 
+  // Backfill captured_at for any existing rows that are missing it
+  await backfillCapturedAt();
+
   return { newCount: newImages.length, skippedCount };
+}
+
+async function backfillCapturedAt(): Promise<void> {
+  const { data, error } = await supabase
+    .from('images')
+    .select('id, filename')
+    .is('captured_at', null);
+
+  if (error || !data || data.length === 0) return;
+
+  console.log(`Backfilling captured_at for ${data.length} images...`);
+
+  const updates = data
+    .map(row => {
+      const date = parseCaptureDate(row.filename);
+      return date ? { id: row.id, captured_at: date.toISOString() } : null;
+    })
+    .filter(Boolean) as { id: string; captured_at: string }[];
+
+  for (const update of updates) {
+    await supabase.from('images').update({ captured_at: update.captured_at }).eq('id', update.id);
+  }
+
+  console.log(`Backfilled ${updates.length} images`);
 }
 
 // ============================================

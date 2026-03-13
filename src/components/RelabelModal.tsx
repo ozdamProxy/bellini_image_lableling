@@ -90,7 +90,9 @@ export default function RelabelModal({ image, onClose, onRelabel, onNext, onPrev
               {image.filename}
             </p>
             {(() => {
-              const date = parseCaptureDate(image.filename, image.created_at);
+              const date = image.captured_at
+                ? new Date(image.captured_at)
+                : parseCaptureDate(image.filename, image.created_at);
               return date ? (
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">
                   📷 {formatCaptureDate(date)}

@@ -10,6 +10,7 @@ export interface ImageData {
   is_trained: boolean;
   trained_at?: string;
   labeled_at?: string;
+  captured_at?: string;
   created_at: string;
   updated_at: string;
   claimed_by?: string;
