@@ -42,6 +42,47 @@ export async function getAllImagesFromDB(): Promise<ImageData[]> {
   return data || [];
 }
 
+export async function getImagesPaginated(
+  label: Label | null,
+  limit: number = 100,
+  offset: number = 0
+): Promise<{ images: ImageData[]; total: number }> {
+  // First, get the total count
+  const countQuery = label
+    ? supabase.from('images').select('*', { count: 'exact', head: true }).eq('label', label)
+    : supabase.from('images').select('*', { count: 'exact', head: true });
+
+  const { count: totalCount, error: countError } = await countQuery;
+
+  if (countError) {
+    console.error('Error getting image count:', countError);
+    throw countError;
+  }
+
+  // Then get the paginated images
+  let query = supabase
+    .from('images')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (label) {
+    query = query.eq('label', label);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching paginated images from Supabase:', error);
+    throw error;
+  }
+
+  return {
+    images: data || [],
+    total: totalCount || 0,
+  };
+}
+
 export async function getImagesByLabel(label: Label): Promise<ImageData[]> {
   const { data, error } = await supabase
     .from('images')

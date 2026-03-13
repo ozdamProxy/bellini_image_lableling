@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllImagesFromDB, getImagesByLabel, syncS3ImagesToDatabase, getImageStats } from '@/lib/supabase';
+import { getAllImagesFromDB, getImagesByLabel, syncS3ImagesToDatabase, getImageStats, getImagesPaginated } from '@/lib/supabase';
 import { listS3Images, getS3ImageUrl } from '@/lib/s3';
 import { getImageUrl, getPublicS3Url } from '@/lib/s3Urls';
 import { Label } from '@/types/image';
@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const label = searchParams.get('label') as Label | null;
     const sync = searchParams.get('sync') === 'true';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const offset = searchParams.get('offset');
 
     const bucket = process.env.AWS_S3_BUCKET;
     const prefix = process.env.AWS_S3_PREFIX || '';
@@ -29,7 +32,12 @@ export async function GET(request: NextRequest) {
       await syncS3ImagesToDatabase(s3Keys, bucket);
     }
 
-    const images = label ? await getImagesByLabel(label) : await getAllImagesFromDB();
+    // Always use pagination - no cap, no legacy behavior
+    const offsetValue = offset ? parseInt(offset, 10) : (page - 1) * limit;
+    const result = await getImagesPaginated(label, limit, offsetValue);
+    const images = result.images;
+    const totalCount = result.total;
+    const totalPages = Math.ceil(totalCount / limit);
 
     // Try presigned URLs first, fall back to public URLs if it fails
     const imagesWithUrls = await Promise.all(
@@ -57,7 +65,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         images: imagesWithUrls,
-        total: imagesWithUrls.length,
+        pagination: {
+          page,
+          limit,
+          offset: offsetValue,
+          total: totalCount,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
         stats,
       },
       {
