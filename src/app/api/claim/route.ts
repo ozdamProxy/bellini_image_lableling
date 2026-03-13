@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getS3ImageUrl } from '@/lib/s3';
+import { getPublicS3Url } from '@/lib/s3Urls';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -48,10 +49,20 @@ export async function POST(request: NextRequest) {
 
       if (data && data.length > 0) {
         const image = data[0];
-        const url = await getS3ImageUrl(bucket, image.s3_key);
+        let path: string;
+
+        try {
+          // Try presigned URL first (24 hour expiry)
+          path = await getS3ImageUrl(bucket, image.s3_key, 86400);
+        } catch (error) {
+          // Fall back to public URL
+          console.warn(`Presigned URL failed for ${image.filename}, using public URL`);
+          path = getPublicS3Url(bucket, image.s3_key);
+        }
+
         claimedImages.push({
           ...image,
-          path: url,
+          path,
         });
       } else {
         break; // No more images available

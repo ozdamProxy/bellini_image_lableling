@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllImagesFromDB, getImagesByLabel, syncS3ImagesToDatabase, getImageStats } from '@/lib/supabase';
 import { listS3Images, getS3ImageUrl } from '@/lib/s3';
+import { getImageUrl, getPublicS3Url } from '@/lib/s3Urls';
 import { Label } from '@/types/image';
 
 // Force dynamic rendering for this route
@@ -30,12 +31,23 @@ export async function GET(request: NextRequest) {
 
     const images = label ? await getImagesByLabel(label) : await getAllImagesFromDB();
 
+    // Try presigned URLs first, fall back to public URLs if it fails
     const imagesWithUrls = await Promise.all(
       images.map(async (image) => {
-        const url = await getS3ImageUrl(bucket, image.s3_key);
+        let path: string;
+
+        try {
+          // Try presigned URL first (works with private buckets)
+          path = await getS3ImageUrl(bucket, image.s3_key, 86400); // 24 hours
+        } catch (error) {
+          // Fall back to public URL (works with public buckets)
+          console.warn(`Presigned URL failed for ${image.filename}, using public URL`);
+          path = getPublicS3Url(bucket, image.s3_key);
+        }
+
         return {
           ...image,
-          path: url,
+          path,
         };
       })
     );
