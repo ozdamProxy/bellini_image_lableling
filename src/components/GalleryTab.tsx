@@ -10,8 +10,6 @@ export default function GalleryTab() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Label | 'all'>('all');
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const fetchImages = async () => {
     try {
@@ -48,36 +46,6 @@ export default function GalleryTab() {
     await fetchImages();
   };
 
-  const handleSync = async () => {
-    try {
-      setSyncing(true);
-      setSyncMessage('Syncing images from S3...');
-
-      const response = await fetch('/api/images?sync=true', {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to sync images');
-      }
-
-      const data = await response.json();
-      setSyncMessage(`✅ Sync complete! Found ${data.images?.length || 0} images.`);
-
-      // Refresh the images
-      await fetchImages();
-
-      // Clear message after 3 seconds
-      setTimeout(() => setSyncMessage(null), 3000);
-    } catch (error) {
-      console.error('Error syncing images:', error);
-      setSyncMessage('❌ Sync failed. Check console for details.');
-      setTimeout(() => setSyncMessage(null), 5000);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   useEffect(() => {
     fetchImages();
   }, [filter]);
@@ -96,25 +64,7 @@ export default function GalleryTab() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h2 className="text-lg sm:text-2xl font-bold">Gallery Statistics</h2>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm sm:text-base ${
-              syncing
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
-            }`}
-          >
-            {syncing ? '🔄 Syncing...' : '🔄 Sync from S3'}
-          </button>
-        </div>
-        {syncMessage && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">{syncMessage}</p>
-          </div>
-        )}
+        <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4">Gallery Statistics</h2>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2 sm:gap-4">
           <div className="text-center p-2 sm:p-4 bg-blue-50 rounded-lg">
             <p className="text-xl sm:text-3xl font-bold text-blue-600">{stats.total}</p>
