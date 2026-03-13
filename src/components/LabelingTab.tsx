@@ -150,6 +150,9 @@ export default function LabelingTab() {
       case '3':
         handleLabel('faulty');
         break;
+      case '4':
+        handleLabel('unfit');
+        break;
       case 'ArrowLeft':
         if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
         break;
@@ -324,10 +327,15 @@ export default function LabelingTab() {
                   onClick={handleLabel}
                   disabled={labeling}
                 />
+                <LabelButton
+                  label="unfit"
+                  onClick={handleLabel}
+                  disabled={labeling}
+                />
               </div>
 
               <div className="mt-4 sm:mt-6 text-center text-xs sm:text-sm text-gray-500 space-y-1">
-                <p className="hidden sm:block">Keyboard shortcuts: 1 = Pass, 2 = Maybe, 3 = Faulty</p>
+                <p className="hidden sm:block">Keyboard shortcuts: 1 = Pass, 2 = Maybe, 3 = Faulty, 4 = Unfit</p>
                 <p className="hidden sm:block">Arrow keys to navigate</p>
                 <p className="sm:hidden">Tap buttons to label</p>
               </div>

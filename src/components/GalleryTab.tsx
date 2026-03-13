@@ -339,13 +339,20 @@ export default function GalleryTab() {
         </>
       )}
 
-      {selectedImage && (
-        <RelabelModal
-          image={selectedImage}
-          onClose={() => setSelectedImage(null)}
-          onRelabel={handleRelabel}
-        />
-      )}
+      {selectedImage && (() => {
+        const idx = images.findIndex(img => img.id === selectedImage.id);
+        return (
+          <RelabelModal
+            image={selectedImage}
+            onClose={() => setSelectedImage(null)}
+            onRelabel={handleRelabel}
+            hasPrev={idx > 0}
+            hasNext={idx < images.length - 1}
+            onPrev={() => idx > 0 && setSelectedImage(images[idx - 1])}
+            onNext={() => idx < images.length - 1 && setSelectedImage(images[idx + 1])}
+          />
+        );
+      })()}
     </div>
   );
 }

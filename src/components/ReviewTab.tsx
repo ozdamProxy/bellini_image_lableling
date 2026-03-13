@@ -147,13 +147,20 @@ export default function ReviewTab() {
         </div>
       )}
 
-      {selectedImage && (
-        <RelabelModal
-          image={selectedImage}
-          onClose={() => setSelectedImage(null)}
-          onRelabel={handleRelabel}
-        />
-      )}
+      {selectedImage && (() => {
+        const idx = displayImages.findIndex(img => img.id === selectedImage.id);
+        return (
+          <RelabelModal
+            image={selectedImage}
+            onClose={() => setSelectedImage(null)}
+            onRelabel={handleRelabel}
+            hasPrev={idx > 0}
+            hasNext={idx < displayImages.length - 1}
+            onPrev={() => idx > 0 && setSelectedImage(displayImages[idx - 1])}
+            onNext={() => idx < displayImages.length - 1 && setSelectedImage(displayImages[idx + 1])}
+          />
+        );
+      })()}
     </div>
   );
 }

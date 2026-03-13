@@ -2,17 +2,31 @@
 
 import { ImageData, Label } from '@/types/image';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LabelButton from './LabelButton';
 
 interface RelabelModalProps {
   image: ImageData;
   onClose: () => void;
   onRelabel: (filename: string, newLabel: Label) => Promise<void>;
+  onNext?: () => void;
+  onPrev?: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
 }
 
-export default function RelabelModal({ image, onClose, onRelabel }: RelabelModalProps) {
+export default function RelabelModal({ image, onClose, onRelabel, onNext, onPrev, hasNext, hasPrev }: RelabelModalProps) {
   const [relabeling, setRelabeling] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' && hasNext && onNext) onNext();
+      if (e.key === 'ArrowLeft' && hasPrev && onPrev) onPrev();
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasNext, hasPrev, onNext, onPrev, onClose]);
 
   const handleRelabel = async (newLabel: Label) => {
     if (relabeling) return;
@@ -52,6 +66,22 @@ export default function RelabelModal({ image, onClose, onRelabel }: RelabelModal
               priority
               sizes="(max-width: 768px) 100vw, 90vw"
             />
+            {hasPrev && onPrev && (
+              <button
+                onClick={onPrev}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl transition-all"
+              >
+                ‹
+              </button>
+            )}
+            {hasNext && onNext && (
+              <button
+                onClick={onNext}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-75 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl transition-all"
+              >
+                ›
+              </button>
+            )}
           </div>
 
           <div className="mb-4 text-center">
@@ -85,6 +115,11 @@ export default function RelabelModal({ image, onClose, onRelabel }: RelabelModal
               />
               <LabelButton
                 label="faulty"
+                onClick={handleRelabel}
+                disabled={relabeling}
+              />
+              <LabelButton
+                label="unfit"
                 onClick={handleRelabel}
                 disabled={relabeling}
               />
