@@ -154,6 +154,7 @@ SELECT
   COUNT(*) FILTER (WHERE label = 'pass') as pass_count,
   COUNT(*) FILTER (WHERE label = 'faulty') as faulty_count,
   COUNT(*) FILTER (WHERE label = 'maybe') as maybe_count,
+  COUNT(*) FILTER (WHERE label = 'unfit') as unfit_count,
   COUNT(*) FILTER (WHERE is_trained = true) as trained_count,
   COUNT(*) FILTER (WHERE label != 'unlabeled' AND is_trained = false) as labeled_untrained_count,
   COUNT(DISTINCT claimed_by) FILTER (WHERE claimed_by IS NOT NULL AND claim_expires_at > NOW()) as active_labelers_count

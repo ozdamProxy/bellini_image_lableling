@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
           passCount: 0,
           faultyCount: 0,
           maybeCount: 0,
+          unfitCount: 0,
           lastActivity: claim.claimed_at,
         };
       }
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
           passCount: 0,
           faultyCount: 0,
           maybeCount: 0,
+          unfitCount: 0,
           lastActivity: image.labeled_at,
         };
       }
@@ -101,6 +103,7 @@ export async function GET(request: NextRequest) {
       if (image.label === 'pass') labelerStats[image.claimed_by].passCount++;
       if (image.label === 'faulty') labelerStats[image.claimed_by].faultyCount++;
       if (image.label === 'maybe') labelerStats[image.claimed_by].maybeCount++;
+      if (image.label === 'unfit') labelerStats[image.claimed_by].unfitCount++;
 
       const activityDate = new Date(image.labeled_at);
       const lastActivity = new Date(labelerStats[image.claimed_by].lastActivity);

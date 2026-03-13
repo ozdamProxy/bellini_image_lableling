@@ -24,6 +24,11 @@ const labelConfig = {
     color: 'bg-yellow-500 hover:bg-yellow-600',
     emoji: '?',
   },
+  unfit: {
+    text: 'Unfit',
+    color: 'bg-purple-500 hover:bg-purple-600',
+    emoji: '⚠',
+  },
   unlabeled: {
     text: 'Unlabeled',
     color: 'bg-gray-500 hover:bg-gray-600',

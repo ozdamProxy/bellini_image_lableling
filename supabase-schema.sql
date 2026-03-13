@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS images (
   filename TEXT NOT NULL UNIQUE,
   s3_key TEXT NOT NULL,
   s3_bucket TEXT NOT NULL,
-  label TEXT NOT NULL DEFAULT 'unlabeled' CHECK (label IN ('pass', 'faulty', 'maybe', 'unlabeled')),
+  label TEXT NOT NULL DEFAULT 'unlabeled' CHECK (label IN ('pass', 'faulty', 'maybe', 'unfit', 'unlabeled')),
   is_trained BOOLEAN DEFAULT FALSE,
   trained_at TIMESTAMP WITH TIME ZONE,
   labeled_at TIMESTAMP WITH TIME ZONE,

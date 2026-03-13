@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['pass', 'faulty', 'maybe', 'unlabeled'].includes(label)) {
+    if (!['pass', 'faulty', 'maybe', 'unfit', 'unlabeled'].includes(label)) {
       return NextResponse.json(
         { error: 'Invalid label' },
         { status: 400 }

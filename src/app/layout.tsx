@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Image Labeling App',
-  description: 'Label images as pass, faulty, or maybe',
+  description: 'Label images as pass, faulty, maybe, or unfit',
 };
 
 export const viewport: Viewport = {

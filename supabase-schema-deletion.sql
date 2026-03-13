@@ -14,6 +14,7 @@ RETURNS TABLE(
   faulty_images BIGINT,
   pass_images BIGINT,
   maybe_images BIGINT,
+  unfit_images BIGINT,
   unlabeled_images BIGINT,
   with_s3_key BIGINT,
   without_s3_key BIGINT
@@ -27,6 +28,7 @@ BEGIN
     COUNT(*) FILTER (WHERE label = 'faulty')::BIGINT as faulty_images,
     COUNT(*) FILTER (WHERE label = 'pass')::BIGINT as pass_images,
     COUNT(*) FILTER (WHERE label = 'maybe')::BIGINT as maybe_images,
+    COUNT(*) FILTER (WHERE label = 'unfit')::BIGINT as unfit_images,
     COUNT(*) FILTER (WHERE label = 'unlabeled')::BIGINT as unlabeled_images,
     COUNT(*) FILTER (WHERE s3_key IS NOT NULL)::BIGINT as with_s3_key,
     COUNT(*) FILTER (WHERE s3_key IS NULL)::BIGINT as without_s3_key
@@ -59,10 +61,12 @@ BEGIN
       UPDATE images SET s3_key = NULL WHERE label = 'pass' AND s3_key IS NOT NULL;
     WHEN 'maybe' THEN
       UPDATE images SET s3_key = NULL WHERE label = 'maybe' AND s3_key IS NOT NULL;
+    WHEN 'unfit' THEN
+      UPDATE images SET s3_key = NULL WHERE label = 'unfit' AND s3_key IS NOT NULL;
     WHEN 'unlabeled' THEN
       UPDATE images SET s3_key = NULL WHERE label = 'unlabeled' AND s3_key IS NOT NULL;
     ELSE
-      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unlabeled', p_filter_type;
+      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unfit, unlabeled', p_filter_type;
   END CASE;
 
   GET DIAGNOSTICS v_updated = ROW_COUNT;
@@ -95,10 +99,12 @@ BEGIN
       DELETE FROM images WHERE label = 'pass' AND s3_key IS NOT NULL;
     WHEN 'maybe' THEN
       DELETE FROM images WHERE label = 'maybe' AND s3_key IS NOT NULL;
+    WHEN 'unfit' THEN
+      DELETE FROM images WHERE label = 'unfit' AND s3_key IS NOT NULL;
     WHEN 'unlabeled' THEN
       DELETE FROM images WHERE label = 'unlabeled' AND s3_key IS NOT NULL;
     ELSE
-      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unlabeled', p_filter_type;
+      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unfit, unlabeled', p_filter_type;
   END CASE;
 
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
@@ -165,6 +171,13 @@ BEGIN
       WHERE label = 'maybe' AND s3_key IS NOT NULL
       ORDER BY created_at ASC
       LIMIT p_batch_size OFFSET p_batch_offset;
+    WHEN 'unfit' THEN
+      RETURN QUERY
+      SELECT s3_key, filename, id
+      FROM images
+      WHERE label = 'unfit' AND s3_key IS NOT NULL
+      ORDER BY created_at ASC
+      LIMIT p_batch_size OFFSET p_batch_offset;
     WHEN 'unlabeled' THEN
       RETURN QUERY
       SELECT s3_key, filename, id
@@ -173,7 +186,7 @@ BEGIN
       ORDER BY created_at ASC
       LIMIT p_batch_size OFFSET p_batch_offset;
     ELSE
-      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unlabeled', p_filter_type;
+      RAISE EXCEPTION 'Invalid filter_type: %. Must be one of: all, trained, untrained, faulty, pass, maybe, unfit, unlabeled', p_filter_type;
   END CASE;
 END;
 $$ LANGUAGE plpgsql;

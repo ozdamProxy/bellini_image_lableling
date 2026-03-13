@@ -19,6 +19,7 @@ interface LabelerStats {
   passCount: number;
   faultyCount: number;
   maybeCount: number;
+  unfitCount: number;
   lastActivity: string;
 }
 
@@ -172,6 +173,7 @@ export default function AdminTab() {
       faulty: 'Faulty Images',
       pass: 'Pass Images',
       maybe: 'Maybe Images',
+      unfit: 'Unfit Images',
       unlabeled: 'Unlabeled Images',
     };
 
@@ -292,6 +294,7 @@ export default function AdminTab() {
       faulty: deletionStats.faulty_images,
       pass: deletionStats.pass_images,
       maybe: deletionStats.maybe_images,
+      unfit: deletionStats.unfit_images,
       unlabeled: deletionStats.unlabeled_images,
     };
 
@@ -419,6 +422,7 @@ export default function AdminTab() {
                 <option value="faulty">Faulty Images ({deletionStats.faulty_images})</option>
                 <option value="pass">Pass Images ({deletionStats.pass_images})</option>
                 <option value="maybe">Maybe Images ({deletionStats.maybe_images})</option>
+                <option value="unfit">Unfit Images ({deletionStats.unfit_images})</option>
                 <option value="unlabeled">Unlabeled Images ({deletionStats.unlabeled_images})</option>
               </select>
             </div>
@@ -520,7 +524,7 @@ export default function AdminTab() {
             </div>
 
             {/* Statistics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-xs text-blue-600 font-medium">Active Claims</p>
                 <p className="text-xl sm:text-2xl font-bold text-blue-900 mt-1">
@@ -545,13 +549,18 @@ export default function AdminTab() {
                   {labeler.faultyCount}
                 </p>
               </div>
-            </div>
-
-            <div className="bg-yellow-50 rounded-lg p-3 inline-block">
-              <p className="text-xs text-yellow-600 font-medium">Maybe</p>
-              <p className="text-xl sm:text-2xl font-bold text-yellow-900 mt-1">
-                {labeler.maybeCount}
-              </p>
+              <div className="bg-yellow-50 rounded-lg p-3">
+                <p className="text-xs text-yellow-600 font-medium">Maybe</p>
+                <p className="text-xl sm:text-2xl font-bold text-yellow-900 mt-1">
+                  {labeler.maybeCount}
+                </p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-3">
+                <p className="text-xs text-purple-600 font-medium">Unfit</p>
+                <p className="text-xl sm:text-2xl font-bold text-purple-900 mt-1">
+                  {labeler.unfitCount}
+                </p>
+              </div>
             </div>
 
             {/* Claimed Images List */}

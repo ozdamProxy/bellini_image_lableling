@@ -13,6 +13,7 @@ export default function ImageCard({ image, onClick }: ImageCardProps) {
     pass: 'bg-green-100 text-green-800 border-green-300',
     faulty: 'bg-red-100 text-red-800 border-red-300',
     maybe: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    unfit: 'bg-purple-100 text-purple-800 border-purple-300',
     unlabeled: 'bg-gray-100 text-gray-800 border-gray-300',
   };
 

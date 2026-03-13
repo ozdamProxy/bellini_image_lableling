@@ -9,6 +9,7 @@ interface LeaderboardEntry {
   passCount: number;
   faultyCount: number;
   maybeCount: number;
+  unfitCount: number;
   lastActivity: string;
 }
 
@@ -121,6 +122,9 @@ export default function LeaderboardTab() {
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Maybe
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unfit
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Active
                 </th>
@@ -153,6 +157,9 @@ export default function LeaderboardTab() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="text-sm font-semibold text-yellow-600">{entry.maybeCount}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-sm font-semibold text-purple-600">{entry.unfitCount}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(entry.lastActivity).toLocaleDateString()}
@@ -188,7 +195,7 @@ export default function LeaderboardTab() {
                     <div className="text-xs text-gray-500">total</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t">
+                <div className="grid grid-cols-4 gap-2 pt-3 border-t">
                   <div className="text-center">
                     <div className="text-lg font-semibold text-green-600">{entry.passCount}</div>
                     <div className="text-xs text-gray-500">Pass</div>
@@ -200,6 +207,10 @@ export default function LeaderboardTab() {
                   <div className="text-center">
                     <div className="text-lg font-semibold text-yellow-600">{entry.maybeCount}</div>
                     <div className="text-xs text-gray-500">Maybe</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-purple-600">{entry.unfitCount}</div>
+                    <div className="text-xs text-gray-500">Unfit</div>
                   </div>
                 </div>
               </div>

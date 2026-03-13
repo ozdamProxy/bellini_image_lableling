@@ -1,4 +1,4 @@
-export type Label = 'pass' | 'faulty' | 'maybe' | 'unlabeled';
+export type Label = 'pass' | 'faulty' | 'maybe' | 'unfit' | 'unlabeled';
 
 export interface ImageData {
   id: string;
@@ -40,6 +40,7 @@ export interface ImageStats {
   pass_count: number;
   faulty_count: number;
   maybe_count: number;
+  unfit_count: number;
   trained_count: number;
   labeled_untrained_count: number;
   active_labelers_count: number;
@@ -56,7 +57,7 @@ export interface ClaimResponse {
 }
 
 // Deletion-related types
-export type DeletionFilterType = 'all' | 'trained' | 'untrained' | 'faulty' | 'pass' | 'maybe' | 'unlabeled';
+export type DeletionFilterType = 'all' | 'trained' | 'untrained' | 'faulty' | 'pass' | 'maybe' | 'unfit' | 'unlabeled';
 
 export interface DeletionStats {
   all_images: number;
@@ -65,6 +66,7 @@ export interface DeletionStats {
   faulty_images: number;
   pass_images: number;
   maybe_images: number;
+  unfit_images: number;
   unlabeled_images: number;
   with_s3_key: number;
   without_s3_key: number;
