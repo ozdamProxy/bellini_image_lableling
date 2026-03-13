@@ -1,6 +1,7 @@
 'use client';
 
 import { ImageData, Label } from '@/types/image';
+import { formatCaptureDate, parseCaptureDate } from '@/lib/imageDate';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import LabelButton from './LabelButton';
@@ -88,6 +89,14 @@ export default function RelabelModal({ image, onClose, onRelabel, onNext, onPrev
             <p className="text-sm sm:text-base font-medium text-gray-700 break-all px-2">
               {image.filename}
             </p>
+            {(() => {
+              const date = parseCaptureDate(image.filename, image.created_at);
+              return date ? (
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                  📷 {formatCaptureDate(date)}
+                </p>
+              ) : null;
+            })()}
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
               Current label: <span className="font-semibold capitalize">{image.label}</span>
             </p>

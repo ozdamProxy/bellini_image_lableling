@@ -32,7 +32,7 @@ export async function getAllImagesFromDB(): Promise<ImageData[]> {
   const { data, error } = await supabase
     .from('images')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('filename', { ascending: false });
 
   if (error) {
     console.error('Error fetching images from Supabase:', error);
@@ -60,10 +60,11 @@ export async function getImagesPaginated(
   }
 
   // Then get the paginated images
+  // Sort by filename descending — camera filenames are timestamp-based so this gives newest first
   let query = supabase
     .from('images')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('filename', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (label) {

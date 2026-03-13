@@ -1,6 +1,7 @@
 'use client';
 
 import { ImageData } from '@/types/image';
+import { formatCaptureDateShort, parseCaptureDate } from '@/lib/imageDate';
 import Image from 'next/image';
 import { useState } from 'react';
 
@@ -62,15 +63,18 @@ export default function ImageCard({ image, onClick }: ImageCardProps) {
         <p className="text-xs font-medium truncate" title={image.filename}>
           {image.filename}
         </p>
+        {(() => {
+          const date = parseCaptureDate(image.filename, image.created_at);
+          return date ? (
+            <p className="text-xs text-gray-500 mt-0.5 truncate" title={date.toLocaleString()}>
+              {formatCaptureDateShort(date)}
+            </p>
+          ) : null;
+        })()}
         <div className="flex items-center justify-between mt-1">
           <span className="text-xs px-2 py-1 rounded-full bg-white border capitalize">
             {image.label}
           </span>
-          {image.labeled_at && (
-            <span className="text-xs text-gray-500">
-              {new Date(image.labeled_at).toLocaleDateString()}
-            </span>
-          )}
         </div>
       </div>
     </div>
