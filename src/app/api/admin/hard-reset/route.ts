@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hardDeleteImages } from '@/lib/supabase';
-import { deleteS3ObjectsChunked } from '@/lib/s3';
+import { listS3Images } from '@/lib/s3';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +21,10 @@ export async function POST(request: NextRequest) {
     const timestamp = new Date().toISOString();
     console.log(`⚠️ HARD RESET initiated at ${timestamp} - This will delete ALL S3 images and database records`);
 
-    // Get S3 bucket from environment
+    // Get S3 configuration from environment
     const bucket = process.env.AWS_S3_BUCKET;
+    const prefix = process.env.AWS_S3_PREFIX || '';
+
     if (!bucket) {
       return NextResponse.json(
         {
@@ -33,75 +34,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get ALL S3 keys (filter: 'all')
-    // We need to fetch in batches to get all keys
-    let allS3Keys: Array<{ s3_key: string; filename: string; id: string }> = [];
-    let offset = 0;
-    const fetchBatchSize = 1000;
+    // Step 1: Get ALL images from S3 (not just those in the database)
+    console.log('Step 1: Listing all images from S3...');
+    const s3Keys = await listS3Images(bucket, prefix);
+    console.log(`Found ${s3Keys.length} images in S3`);
 
-    console.log('Fetching all S3 keys for hard reset...');
-    while (true) {
-      const batch = await hardDeleteImages('all'); // This won't work, we need a different approach
+    // Step 2: Delete all images from S3
+    let s3DeletedCount = 0;
+    let s3FailedCount = 0;
+    const errors: string[] = [];
 
-      // Actually, we need to fetch the keys first, then delete
-      // Let's use the RPC function to get keys
-      const { getFilteredS3Keys } = await import('@/lib/supabase');
-      const keysBatch = await getFilteredS3Keys('all', fetchBatchSize, offset);
+    if (s3Keys.length > 0) {
+      console.log(`Step 2: Deleting ${s3Keys.length} images from S3...`);
 
-      if (keysBatch.length === 0) break;
+      const { deleteS3ObjectsChunked } = await import('@/lib/s3');
+      const deleteResult = await deleteS3ObjectsChunked(
+        bucket,
+        s3Keys,
+        500,
+        (completed, total) => {
+          console.log(`S3 deletion progress: ${completed}/${total}`);
+        }
+      );
 
-      allS3Keys.push(...keysBatch);
-      offset += fetchBatchSize;
+      s3DeletedCount = deleteResult.deletedCount;
+      s3FailedCount = deleteResult.failedCount;
+      errors.push(...deleteResult.errors);
 
-      console.log(`Fetched ${allS3Keys.length} keys so far...`);
-
-      // Safety check to prevent infinite loops
-      if (keysBatch.length < fetchBatchSize) break;
+      console.log(`S3 deletion completed: ${s3DeletedCount} deleted, ${s3FailedCount} failed`);
     }
 
-    if (allS3Keys.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No images found. Hard reset complete.',
-        stats: {
-          totalQueued: 0,
-          s3Deleted: 0,
-          s3Failed: 0,
-          dbDeleted: 0,
-        },
-        errors: [],
-      });
-    }
+    // Step 3: Delete ALL records from database using RPC function
+    console.log('Step 3: Deleting all records from database...');
 
-    console.log(`⚠️ HARD RESET: Deleting ${allS3Keys.length} images from S3 and database`);
+    const { factoryResetDatabase } = await import('@/lib/supabase');
 
-    // Extract just the S3 keys
-    const s3Keys = allS3Keys.map(item => item.s3_key);
+    // Use the helper function to delete all records
+    const dbDeletedCount = await factoryResetDatabase();
+    console.log(`Deleted ${dbDeletedCount} records from database`);
 
-    // Delete from S3 in batches
-    const deleteResult = await deleteS3ObjectsChunked(
-      bucket,
-      s3Keys,
-      500,
-      (completed, total) => {
-        console.log(`HARD RESET S3 deletion progress: ${completed}/${total}`);
-      }
-    );
-
-    // Delete all database records
-    const dbDeleted = await hardDeleteImages('all');
-    console.log(`HARD RESET: Deleted ${dbDeleted} database records`);
+    // Build response
+    const message = `HARD RESET complete: Deleted ${s3DeletedCount} S3 images and ${dbDeletedCount} database records.`;
 
     return NextResponse.json({
       success: true,
-      message: `HARD RESET complete: Deleted ${deleteResult.deletedCount} S3 images and ${dbDeleted} database records.`,
+      message,
       stats: {
-        totalQueued: allS3Keys.length,
-        s3Deleted: deleteResult.deletedCount,
-        s3Failed: deleteResult.failedCount,
-        dbDeleted,
+        s3ImagesFound: s3Keys.length,
+        s3Deleted: s3DeletedCount,
+        s3Failed: s3FailedCount,
+        dbDeleted: dbDeletedCount,
       },
-      errors: deleteResult.errors,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
     console.error('Error in hard-reset API:', error);

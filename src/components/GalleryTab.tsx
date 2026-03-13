@@ -15,7 +15,12 @@ export default function GalleryTab() {
     try {
       setLoading(true);
       const url = filter === 'all' ? '/api/images' : `/api/images?label=${filter}`;
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       const data = await response.json();
       setImages(data.images || []);
     } catch (error) {

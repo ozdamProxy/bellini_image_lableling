@@ -42,11 +42,20 @@ export async function GET(request: NextRequest) {
 
     const stats = await getImageStats();
 
-    return NextResponse.json({
-      images: imagesWithUrls,
-      total: imagesWithUrls.length,
-      stats,
-    });
+    return NextResponse.json(
+      {
+        images: imagesWithUrls,
+        total: imagesWithUrls.length,
+        stats,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error fetching images:', error);
     return NextResponse.json(

@@ -158,18 +158,29 @@ export async function syncS3ImagesToDatabase(
   // Instead of fetching ALL images, just get the filenames we need to check
   const filenames = s3Keys.map(key => key.split('/').pop() || key);
 
-  // Query only for these specific filenames (much faster than fetching all)
-  const { data: existingImages, error: queryError } = await supabase
-    .from('images')
-    .select('filename')
-    .in('filename', filenames);
+  // Query in batches to avoid Headers Overflow Error
+  // The issue: too many filenames in a single .in() clause creates headers that are too large
+  const batchSize = 50; // Small batch size to avoid header overflow (tested with 1099 images)
+  const existingFilenames = new Set<string>();
 
-  if (queryError) {
-    console.error('Error checking existing images:', queryError);
-    throw queryError;
+  for (let i = 0; i < filenames.length; i += batchSize) {
+    const batch = filenames.slice(i, i + batchSize);
+    const { data: existingImages, error: queryError } = await supabase
+      .from('images')
+      .select('filename')
+      .in('filename', batch);
+
+    if (queryError) {
+      console.error('Error checking existing images:', queryError);
+      throw queryError;
+    }
+
+    if (existingImages) {
+      existingImages.forEach(img => existingFilenames.add(img.filename));
+    }
+
+    console.log(`Checked ${Math.min(i + batchSize, filenames.length)}/${filenames.length} filenames...`);
   }
-
-  const existingFilenames = new Set((existingImages || []).map(img => img.filename));
 
   const newImages = s3Keys
     .filter(key => {
@@ -272,6 +283,28 @@ export async function hardDeleteImages(filterType: DeletionFilterType): Promise<
 
   if (error) {
     console.error('Error performing hard delete:', error);
+    throw error;
+  }
+
+  // The RPC returns a table with deleted_count
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return 0;
+  }
+
+  // Extract the count from the first row
+  const result = data[0] as { deleted_count: number };
+  return result.deleted_count || 0;
+}
+
+// ============================================
+// Factory Reset Functions
+// ============================================
+
+export async function factoryResetDatabase(): Promise<number> {
+  const { data, error } = await supabase.rpc('delete_all_images');
+
+  if (error) {
+    console.error('Error performing factory reset:', error);
     throw error;
   }
 
