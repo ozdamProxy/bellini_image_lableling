@@ -155,8 +155,14 @@ export async function syncS3ImagesToDatabase(
   s3Keys: string[],
   bucket: string
 ): Promise<{ newCount: number; skippedCount: number }> {
+  console.log(`=== syncS3ImagesToDatabase ===`);
+  console.log(`Total S3 keys to process: ${s3Keys.length}`);
+  console.log(`Bucket: ${bucket}`);
+
   // Instead of fetching ALL images, just get the filenames we need to check
   const filenames = s3Keys.map(key => key.split('/').pop() || key);
+  console.log(`Extracted ${filenames.length} filenames`);
+  console.log('Sample filenames:', filenames.slice(0, 5));
 
   // Query in batches to avoid Headers Overflow Error
   // The issue: too many filenames in a single .in() clause creates headers that are too large
@@ -179,8 +185,10 @@ export async function syncS3ImagesToDatabase(
       existingImages.forEach(img => existingFilenames.add(img.filename));
     }
 
-    console.log(`Checked ${Math.min(i + batchSize, filenames.length)}/${filenames.length} filenames...`);
+    console.log(`Checked ${Math.min(i + batchSize, filenames.length)}/${filenames.length} filenames... (found ${existingImages?.length || 0} existing)`);
   }
+
+  console.log(`Total existing filenames found: ${existingFilenames.size}`);
 
   const newImages = s3Keys
     .filter(key => {
@@ -200,18 +208,29 @@ export async function syncS3ImagesToDatabase(
 
   const skippedCount = s3Keys.length - newImages.length;
 
+  console.log(`New images to insert: ${newImages.length}`);
+  console.log(`Images to skip: ${skippedCount}`);
+
   if (newImages.length > 0) {
+    console.log('Sample new images:', newImages.slice(0, 3));
+
     // Insert in batches of 1000 to avoid timeout
     const batchSize = 1000;
     for (let i = 0; i < newImages.length; i += batchSize) {
       const batch = newImages.slice(i, i + batchSize);
+      console.log(`Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(newImages.length / batchSize)} (${batch.length} images)`);
+
       const { error } = await supabase.from('images').insert(batch);
 
       if (error) {
         console.error('Error syncing batch to database:', error);
         throw error;
       }
+
+      console.log(`Batch inserted successfully`);
     }
+  } else {
+    console.log('No new images to insert');
   }
 
   return { newCount: newImages.length, skippedCount };

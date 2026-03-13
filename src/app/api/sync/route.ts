@@ -17,11 +17,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('=== S3 Sync Debug ===');
+    console.log('Bucket:', bucket);
+    console.log('Prefix:', prefix || '(none)');
     console.log('Starting S3 sync...');
     const startTime = Date.now();
 
     const s3Keys = await listS3Images(bucket, prefix);
     console.log(`Found ${s3Keys.length} images in S3`);
+
+    if (s3Keys.length > 0) {
+      console.log('Sample S3 keys:', s3Keys.slice(0, 5));
+    }
 
     const { newCount, skippedCount } = await syncS3ImagesToDatabase(s3Keys, bucket);
 
@@ -35,11 +42,19 @@ export async function POST(request: NextRequest) {
       added: newCount,
       skipped: skippedCount,
       duration: `${duration}s`,
+      debug: {
+        bucket,
+        prefix,
+        sampleKeys: s3Keys.slice(0, 5),
+      },
     });
   } catch (error) {
     console.error('Error syncing images:', error);
     return NextResponse.json(
-      { error: 'Failed to sync images from S3' },
+      {
+        error: 'Failed to sync images from S3',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
