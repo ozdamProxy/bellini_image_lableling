@@ -34,7 +34,7 @@ export async function getAllImagesFromDB(): Promise<ImageData[]> {
     .from('images')
     .select('*')
     .order('captured_at', { ascending: false, nullsFirst: false })
-    .order('filename', { ascending: false });
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching images from Supabase:', error);
@@ -67,7 +67,7 @@ export async function getImagesPaginated(
     .from('images')
     .select('*')
     .order('captured_at', { ascending: false, nullsFirst: false })
-    .order('filename', { ascending: false })
+    .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (label) {
@@ -196,103 +196,74 @@ export async function getImageStats(): Promise<ImageStats> {
   return data;
 }
 
+export async function getLatestS3Key(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('images')
+    .select('s3_key')
+    .order('s3_key', { ascending: false })
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+  return data[0].s3_key;
+}
+
 export async function syncS3ImagesToDatabase(
   s3Keys: string[],
   bucket: string
 ): Promise<{ newCount: number; skippedCount: number }> {
   console.log(`=== syncS3ImagesToDatabase ===`);
-  console.log(`Total S3 keys to process: ${s3Keys.length}`);
-  console.log(`Bucket: ${bucket}`);
+  console.log(`Keys to process: ${s3Keys.length}, Bucket: ${bucket}`);
 
-  // Instead of fetching ALL images, just get the filenames we need to check
-  const filenames = s3Keys.map(key => key.split('/').pop() || key);
-  console.log(`Extracted ${filenames.length} filenames`);
-  console.log('Sample filenames:', filenames.slice(0, 5));
-
-  // Query in batches to avoid Headers Overflow Error
-  // The issue: too many filenames in a single .in() clause creates headers that are too large
-  const batchSize = 50; // Small batch size to avoid header overflow (tested with 1099 images)
-  const existingFilenames = new Set<string>();
-
-  for (let i = 0; i < filenames.length; i += batchSize) {
-    const batch = filenames.slice(i, i + batchSize);
-    const { data: existingImages, error: queryError } = await supabase
-      .from('images')
-      .select('filename')
-      .in('filename', batch);
-
-    if (queryError) {
-      console.error('Error checking existing images:', queryError);
-      throw queryError;
-    }
-
-    if (existingImages) {
-      existingImages.forEach(img => existingFilenames.add(img.filename));
-    }
-
-    console.log(`Checked ${Math.min(i + batchSize, filenames.length)}/${filenames.length} filenames... (found ${existingImages?.length || 0} existing)`);
-  }
-
-  console.log(`Total existing filenames found: ${existingFilenames.size}`);
-
-  const newImages = s3Keys
-    .filter(key => {
-      const filename = key.split('/').pop() || key;
-      return !existingFilenames.has(filename);
-    })
-    .map(key => {
-      const filename = key.split('/').pop() || key;
-      const capturedAt = parseCaptureDate(filename);
-      return {
-        filename,
-        s3_key: key,
-        s3_bucket: bucket,
-        label: 'unlabeled' as Label,
-        is_trained: false,
-        captured_at: capturedAt ? capturedAt.toISOString() : null,
-      };
-    });
-
-  const skippedCount = s3Keys.length - newImages.length;
-
-  console.log(`New images to insert: ${newImages.length}`);
-  console.log(`Images to skip: ${skippedCount}`);
-
-  if (newImages.length > 0) {
-    console.log('Sample new images:', newImages.slice(0, 3));
-
-    // Insert in batches of 1000 to avoid timeout
-    const batchSize = 1000;
-    for (let i = 0; i < newImages.length; i += batchSize) {
-      const batch = newImages.slice(i, i + batchSize);
-      console.log(`Inserting batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(newImages.length / batchSize)} (${batch.length} images)`);
-
-      const { error } = await supabase.from('images').insert(batch);
-
-      if (error) {
-        console.error('Error syncing batch to database:', error);
-        throw error;
-      }
-
-      console.log(`Batch inserted successfully`);
-    }
-  } else {
+  if (s3Keys.length === 0) {
     console.log('No new images to insert');
+    return { newCount: 0, skippedCount: 0 };
   }
 
-  // Backfill captured_at for any existing rows that are missing it
-  await backfillCapturedAt();
+  const images = s3Keys.map(key => {
+    const filename = key.split('/').pop() || key;
+    const capturedAt = parseCaptureDate(filename);
+    return {
+      filename,
+      s3_key: key,
+      s3_bucket: bucket,
+      label: 'unlabeled' as Label,
+      is_trained: false,
+      captured_at: capturedAt ? capturedAt.toISOString() : null,
+    };
+  });
 
-  return { newCount: newImages.length, skippedCount };
+  // Upsert in batches — DB handles duplicates via ON CONFLICT DO NOTHING,
+  // so no need to manually check existing filenames first.
+  const BATCH_SIZE = 500;
+  let inserted = 0;
+
+  for (let i = 0; i < images.length; i += BATCH_SIZE) {
+    const batch = images.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase
+      .from('images')
+      .upsert(batch, { onConflict: 'filename', ignoreDuplicates: true });
+
+    if (error) {
+      console.error('Error upserting batch:', error);
+      throw error;
+    }
+
+    inserted += batch.length;
+    console.log(`Upserted ${inserted}/${images.length}`);
+  }
+
+  console.log(`Done — ${images.length} rows upserted (duplicates silently skipped by DB)`);
+  return { newCount: images.length, skippedCount: 0 };
 }
 
-async function backfillCapturedAt(): Promise<void> {
+export async function backfillCapturedAt(): Promise<number> {
   const { data, error } = await supabase
     .from('images')
     .select('id, filename')
-    .is('captured_at', null);
+    .is('captured_at', null)
+    .limit(5000);
 
-  if (error || !data || data.length === 0) return;
+  if (error || !data || data.length === 0) return 0;
 
   console.log(`Backfilling captured_at for ${data.length} images...`);
 
@@ -303,11 +274,18 @@ async function backfillCapturedAt(): Promise<void> {
     })
     .filter(Boolean) as { id: string; captured_at: string }[];
 
-  for (const update of updates) {
-    await supabase.from('images').update({ captured_at: update.captured_at }).eq('id', update.id);
+  // Batch upsert instead of one UPDATE per row
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+    const batch = updates.slice(i, i + BATCH_SIZE);
+    const { error: updateError } = await supabase
+      .from('images')
+      .upsert(batch, { onConflict: 'id' });
+    if (updateError) console.error('Backfill batch error:', updateError);
   }
 
   console.log(`Backfilled ${updates.length} images`);
+  return updates.length;
 }
 
 // ============================================

@@ -30,7 +30,7 @@ function getS3Client(): S3Client {
   return s3Client;
 }
 
-export async function listS3Images(bucket: string, prefix: string = ''): Promise<string[]> {
+export async function listS3Images(bucket: string, prefix: string = '', startAfter?: string): Promise<string[]> {
   try {
     const client = getS3Client();
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -42,6 +42,7 @@ export async function listS3Images(bucket: string, prefix: string = ''): Promise
         Bucket: bucket,
         Prefix: prefix,
         ContinuationToken: continuationToken,
+        ...(startAfter && !continuationToken ? { StartAfter: startAfter } : {}),
       });
 
       const response: any = await client.send(command);
